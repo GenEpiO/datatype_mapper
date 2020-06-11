@@ -1,0 +1,150 @@
+<html>
+  <head>
+    <title>Bi-directional data conversion</title>
+    <link rel="stylesheet" href="index.css"></link>
+  </head>
+
+  <body>
+
+    <h1>Bi-directional data conversion v1.0</h1>
+
+    <table>
+      <tr>
+        <th></th>
+        <th class="panel">User Data</th>
+        <th></th>
+        <th class="panel">Specification</th>
+      </tr>
+      <tr>
+        <td>Field type</td>
+        <td>
+          <select id="user_field_type" onchange="javascript:validate_wrapper('user');convert_formfield();validate_wrapper('spec')">
+            <option value="">Select field type</option>
+          </select>
+        </td>
+        <td class="control" rowspan="3">
+          convert<br/>
+          <button onclick="javascript:convert_formfield()">&gt;</button>
+          <br/>
+          <br/>
+          <button onclick="javascript:flip_formfield()">flip</button>
+        </td>
+        <td>
+          <select id="spec_field_type" onchange="javascript:convert_formfield();validate_wrapper('spec')">      
+            <option value="">Select field type</option>
+          </select>
+        </td>
+      </tr>
+
+      <tr>
+        <td>Input</td>
+        <td>
+          <input id="user_field_input" type="text" onkeyup="javascript:recognize('user');validate_wrapper('user');convert_formfield();validate_wrapper('spec')" value="" />
+        </td>
+        <td>
+          <input id="spec_field_input" type="text" onkeyup="javascript:validate_wrapper('spec');">
+        </td>
+      </tr>
+
+      <tr>
+        <td>Unit</td>
+        <td>
+          <select id="user_field_unit"></select><br/>
+          <input type="checkbox" disabled="disabled" /><span style="color:gray">Parse unit from input (coming soon)</span>
+        </td>
+        <td><select id="spec_field_unit"></select></td>
+      </tr>
+
+      <tr>
+        <td>Conversion</td>
+        <td colspan="3">
+          <div id="conversion" class="conversion_box"></div>
+        </td>
+      </tr>
+      <tr>
+        <td><br/>Validation</td>
+        <td class="validation_box"><div id="user_validation"></div></td>
+        <td></td>
+        <td class="validation_box"><div id="spec_validation"></div></td>
+      </tr>  
+      <tr>
+        <td>Recognition</td>
+        <td colspan="3">
+          (type in user data value to start):
+          <div id="message" class="recognition_box"></div>
+        </td>
+      </tr>
+      <tr>
+        <td>Test Suite</td>
+        <td colspan="3">
+          <div class="test_suite_wrapper">
+            <table id="test_suite">
+              <tr>
+                <th style="width:45px"></th>
+                <th style="width:120px">field</th>
+                <th style="width:150px">test 1</th>
+                <th style="width:150px">test 2</th>
+                <th style="width:150px">test 3</th>
+                <th style="width:150px">test 4</th>
+                <th style="width:80px">unit</th>
+              </tr>
+            </table>
+          </div>
+          Legend: &nbsp; 
+          <b style="color:green">green</b>: valid datum or result &nbsp; &nbsp; 
+          <b style="color:orange">orange</b>: invalid format &nbsp; &nbsp; 
+          <b style="color:red">red</b>: invalid conversion result
+          <br/>
+          <br/>
+        </td>
+      </tr>
+      <tr>
+        <td>Notes</td>
+        <td colspan="3">
+          <ul>
+            <li>Field types are organized by group.  Conversions between fields within a group involve mapping items at the same position or "index" in each field type's list of values (given as an array or function).</li>
+            <li>The primitive "integer > integer" can convert across groups.</li>
+            <li>A multi-component field can be <b>parsed</b> into its parts, each of which can be captured in a corresponding converted field if present. A parsing delivers substrings that can be used by other conversions.</li>
+            <li>Multiple fields can be <b>synthesized</b> into a single converted field like "date - iso 8601".  A synthesis concatenates substrings from associated source fields by name.  Source fields are ordered so a synthesis can draw on respective fields to fill parts?.</li>
+            <li>A target field can specify a set of defaults to swap in if matching to a source field that may not have them. E.g. "signed_int.default: {'sign':''},</li>
+          </ul>
+        </td>
+      </tr>
+      <tr>
+        <td>Issues/Bugs:</td>
+        <td colspan="3">
+          <ul>
+            <li>Unix date conversion to M/DD/YYYY looses a day+? UTC? Time zone?</li>
+            <li>Unix date conversion 0 to datetime ISO 8601 is messing up in seconds, millisecond (no period) and no TZD null.
+            <li> regex matching of parameters that can match nothing, e.g. {integer} -> {sign}{integer}</li>
+          </ul>
+        </td>
+      </tr>
+    </table>
+
+  </body>
+
+<script src="js/app.js"></script>
+<script src="js/units.js"></script>
+<script src="js/fields.js"></script>
+<script src="js/html_utils.js"></script>
+<script src="js/test_suite.js"></script>
+
+<script>
+  // Mapping of field name to field object
+  field_index = {}; 
+  // Mapping of field group to field if it has a map
+  //field_equivalence.[field_group_name][field_name] = field.decompose;
+  field_equivalence = {}; 
+  init_field_type();
+  render_test_suite();
+
+  // Render form elements
+  render_field_type("user_field_type");
+  render_field_type("spec_field_type");
+  render_field_unit("user_field_unit");
+  render_field_unit("spec_field_unit");  
+
+</script>
+
+</html>
