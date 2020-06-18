@@ -188,7 +188,7 @@ function render_test_suite() {
       test.round = {values:[]};
     test.round.class = [];
 
-    for (i = 0; i <4; i++) {
+    for (i = 0; i <4; i++) { // test1, test2, test3, test4 columns.
       test.user.error[i] = '';
       test.user.class[i] = '';
       test.spec.error[i] = '';
@@ -208,6 +208,7 @@ function render_test_suite() {
         if (test.spec.values[i] && test.spec.field) {
           let output = convert(test.user.field, value, test.spec.field);
           //let spec_value = test.spec.values[i];
+          // if the spec field value matches converted field's value, good!
           if (test.spec.values[i].localeCompare(output) == 0) {
             test.spec.class[i] = "ok";
 
@@ -216,7 +217,7 @@ function render_test_suite() {
               let round = convert(test.spec.field, output, test.user.field);
               if (value.localeCompare(round) == 0) {
                 test.round.class[i] = "ok";
-                test.round.values[i] = '&#10004;';
+                test.round.values[i] = '&#10004;'; // checkmark
               }
               else {
                 test.round.class[i] = "error";

@@ -1,6 +1,45 @@
 
-// Good testing resource: https://regex101.com/
+/* Good testing resource: https://regex101.com/
+// Good regex named group reference: https://2ality.com/2017/05/regexp-named-capture-groups.html
 
+Parse definitions have a syntax that weaves in both regular expression content
+and {part_name} references. parse operates on a single input field, splitting
+it up into one or more named matching expressions.  Examples:
+
+      parse: '(?<xs_nonNegativeInteger>(0|[1-9]\\d*))',
+      parse: '(?<unix_date>{xs_integer})',
+      parse: '(?<date_iso_8601>{YYYY}-{MM}-{DD})',
+      parse: '(?<duration>P{year_duration}?{month_duration}?{week_duration}?{day_duration}?)'],
+
+A PARSING method first does a python dictionary lookup (coming from this lang
+data structure) to swap in component regular expressions to generate a single
+regular expression that matches a single string, start to finish. 
+
+One issue is that regular expressions don't allow duplicate named groups. This
+poses a problem for a lat_long having <latitude> and <longitude> referencing 
+the same <xs_integer> as a part. SOLUTION: duplicate occurrances of 
+<part_name> (generally?) aren't needed as they are low-level artifacts, so
+remove the <part_name> (or make them unique by autoincrementing suffix). The
+generated dictionary of terms will just have higher level named things like
+latitude: ... and longitude: ... .
+
+Another issue is that named regex's are very particular about the characters
+allowed in a name. <name> can't contain anything besides alphanumeric and 
+underscore. To work with this, reference to XML schema datatypes is done with
+"xs_" prefix.
+
+As a SYNTHESIS method - to see if all the parts are available during a parsing
+effort to create a given field type - we try to construct the field type from
+all the parts provided in a dictionary that has been generated of parse parts.
+To synthesize, each {part_name} value has to be wrapped in brackets and its 
+textual content must be escaped so it can be taken as a string literal. A twist
+on this is that the elements making up the single output may actually be from
+different input fields, e.g. YYYY, MM, DD input as separate fields, not one
+string.
+
+The actual parsing is a two step process:
+1) replace parse {} with their dictionary regexpressions
+*/
 lang = {
   day: {// day of month
     D: {
@@ -11,6 +50,7 @@ lang = {
     DD: {
       label: "day - 2 digit",
       parse: '(?<DD>0[1-9]|[12][0-9]|30|31)',
+      // map has leading zeros, so string index:
       map: ['01','02','03','04','05','06','07','08','09','10','11','12','13','14','15','16','17','18','19','20','21','22','23','24','25','26','27','28','29','30','31']
     }
     // case: 2.5 days?
@@ -37,7 +77,7 @@ lang = {
       label: "month - integer",
       parse: '(?<M>[1-9]|10|11|12)',
       unit: 'UO:0000035',
-      map: ['1','2','3','4','5','6','7','8','9','10','11','12']
+      map: [1,2,3,4,5,6,7,8,9,10,11,12] // numeric values allow bidirectional lookup
     },
     MM: {
       label: "month - 2 digit",
@@ -62,9 +102,6 @@ lang = {
     YYYY: {
       label: 'year - 4 digit',
       parse: '(?<YYYY>\\d{4})',
-      // Just two ways to synthesize this unambiguously.
-      // We locate possibly compound products with the resultant field type.
-      //synth: ['{YYYY}', '19{c19YY}', '20{c20YY}'],
       unit: 'UO:0000036',
       map: function (param){
         return map_integer(param, 0, 9999, true)}
@@ -73,7 +110,6 @@ lang = {
     YY: {
       label: 'year - 2 digit',
       parse: '(?<YY>\\d\\d)',
-      synth: ['{c19YY}', '{c20YY}'],
       unit:'UO:0000036',
       map: function (param){
         return map_integer(param, 0, 99, true)}
@@ -107,59 +143,85 @@ lang = {
   },
   time: {
 
-    /* P is the duration designator (for period) placed at the start of the duration representation.
+    /* 
+    P is the duration designator (for period) placed at the start of the duration representation.
+
     Y is the year designator that follows the value for the number of years.
     M is the month designator that follows the value for the number of months.
     W is the week designator that follows the value for the number of weeks.
     D is the day designator that follows the value for the number of days.
+
     T is the time designator that precedes the time components of the representation.
+
     H is the hour designator that follows the value for the number of hours.
     M is the minute designator that follows the value for the number of minutes.
     S is the second designator that follows the value for the number of seconds.
     */
     duration: {
       label: 'duration - ISO 8601',
-      synth: ['P({year_duration}Y)?({month_duration}M)?({week_duration}W)?({day_duration}D)?'],
+      parse: '(?<duration>P{year_duration}?{month_duration}?{week_duration}?{day_duration}?)',
       // Mapping is a bit complicated.
+    },
+    year_duration_iso_8601: {
+      label: 'year - duration iso 8601',
+      parse: '(?<year_duration_iso_8601>{year_duration}Y)',
+      unit: 'UO:0000036'
     },
     year_duration: {
       label: 'year - duration',
-      synth: ['{int}'],
-      unit: ''
+      parse: '(?<year_duration>{xs_integer})',
+      unit: 'UO:0000036'
+    },
+    month_duration_iso_8601: {
+      label: 'month - duration iso 8601',
+      parse: '(?<month_duration_iso_8601>{month_duration}M)',
+      unit: 'UO:0000035'
     },
     month_duration: {
       label: 'month - duration',
-      synth: ['{int}'],
-      unit: ''
+      parse: '(?<month_duration>{xs_integer})',
+      unit: 'UO:0000035'
+    },
+    week_duration_iso_8601: {
+      label: 'week - duration iso 8601',
+      parse: '(?<week_duration_iso_8601>{week_duration}W)',
+      unit: 'UO:0000034'
     },
     week_duration: {
       label: 'week - duration',
-      synth: ['{int}'],
-      unit: ''
+      parse: '(?<week_duration>{xs_integer})',
+      unit: 'UO:0000034'
+    },
+    day_duration_iso_8601: {
+      label: 'day - duration iso 8601',
+      parse: '(?<day_duration_iso_8601>{day_duration}D)',
+      unit: 'UO:0000033'
     },
     day_duration: {
       label: 'day - duration',
-      synth: ['{int}'],
-      unit: ''
-    },
+      parse: '(?<day_duration>{xs_integer})',
+      unit: 'UO:0000033'
+    }
+  },
+  'hour': {
     hh: {
       label: 'hour - 24 hh',
       group: 'hour',
-      parse: '(?<hh>[01]\\d|20|21|22|23)',
+      parse: '(?<hh>[01][0-9]|20|21|22|23)',
       unit: 'UO:0000032',
       map: function (param){return map_integer(param, 0, 23, true)},
     },
     h: {
       label: 'hour - 24 h',
       group: 'hour',
-      parse: '(?<h>[0-9]|1\\d|20|21|22|23)',
+      parse: '(?<h>[0-9]|1[0-9]|20|21|22|23)',
       unit: 'UO:0000032',
       map: function (param){return map_integer(param, 0, 23)},
     },
     h12ap: {
       label: 'hour - 12 a/p',
       group: 'hour',
-      parse: '(?<h12>[0-9]|10|11|12)[ ]?(?<a_p>a|p|am|pm)', //case insensitive
+      parse: '(?<h12>[0-9]|10|11|12)[ ]?{am_pm}', //case insensitive
       unit: 'UO:0000032',
       map: function (param, lookup){
         // SADLY - param isn't dictionary - it doesn't include <a_p>. Fix in future?
@@ -175,10 +237,22 @@ lang = {
           return map_integer(param_int+12, 12, 23)
         return map_integer(param_int, 0, 11)
       }
+    }
+  },
+  string: {
+    am_pm: {
+      label: 'am_pm',
+      parse: '(?<am_pm>a|p|am|pm)',
     },
+    a_p: {
+      label: 'a_p',
+      parse: '(?<a_p>a|p|am|pm)',
+    }
+  },
+  minute: {
     m_int: {
       label: 'minute integer',
-      synth: ['{int}'],
+      parse: '(?<m_int>{xs_integer})',
       unit: 'UO:0000031',
       group: 'minute',
       map: function (param){return map_integer(param, 0, null)},
@@ -192,10 +266,10 @@ lang = {
     },
     s_int: {
       label: 'second integer',
-      synth: ['{int}'],
+      parse: '(?<s_int>{xs_integer})',
       unit: 'UO:0000010',
       group: 'second',
-      map: function (param){ // NEVER ACCESSED BECAUSE {int} TAKES OVER!
+      map: function (param){ // NEVER ACCESSED BECAUSE {xs_integer} TAKES OVER!
         //console.log('second integer', param, map_integer(param, 0, null))
         return map_integer(param, 0, null)},
     },
@@ -209,7 +283,7 @@ lang = {
     },
     ms_int: {
       label: 'millisecond integer',
-      synth: ['{int}'],
+      parse: '(?<ms_int>{xs_integer})',
       unit: 'UO:0000028', // millisecond
       group: 'millisecond',
       map: function (param){return map_integer(param, 0, null)},
@@ -223,12 +297,13 @@ lang = {
       group: 'millisecond',
       map: function (param, lookup){
         if (lookup) {
+          //console.log("ms_fraction map", param)
           // 0 -> .000 , 1 -> .001 etc.
           return (parseInt(param) / 1000).toFixed(3).substr(1); // trims off leading 0
         }
 
         // .000 -> index = 0; .001 -> index = 1 etc.
-        return map_integer(param * 1000, 0, 999, true);
+        return map_integer('0' + param * 1000, 0, 999, true);
       },
     },
   },
@@ -241,14 +316,12 @@ lang = {
   date: {
     unix_date: {
       label: 'date - unix',
-      //synth: ['{signed_int}'], // Issue: mapping function for signed_int is used?
-      parse: '(?<unix_date>(-|\\+?)(0|[1-9]\\d*))',
-
+      parse: '(?<unix_date>{xs_integer})',
       map: function (param){return param}
     },
     date_iso_8601: {
       label: 'date (ISO 8601)',
-      synth: ['{YYYY}-{MM}-{DD}'],
+      parse: '(?<date_iso_8601>{YYYY}-{MM}-{DD})',
       map: function(param, lookup) { 
         // unix time map -> ISO
         if (lookup) {
@@ -259,15 +332,21 @@ lang = {
         return String(Date.parse(param)/1000)
       }
     },
+    time_iso_8601: {
+      label: 'time (ISO 8601)',
+      parse: '(?<time_iso_8601>{hh}((?<delim>:?){mm}(\\k<delim>{ss}{ms_fraction}?)?)?)',
+      map: null // PROBABLY THE SAME AS FOR datetime_iso_8601
+    },
+    // https://en.wikipedia.org/wiki/ISO_8601
     datetime_iso_8601: { // Like above, but NO SPLIT ON T.
       label: 'datetime (ISO 8601)',
-      synth: ['{YYYY}-{MM}-{DD}T{hh}:{mm}:{ss}{ms_fraction}{TZD}'],
+      parse: '(?<datetime_iso_8601>{date_iso_8601}T{time_iso_8601}{TZD})',
       // "decompose" flag indicates source dictionary should include this decomposition
       // if a mapping is requested.
       decompose:true, 
       map: function(param, lookup) {
         // unix time -> ISO Full date
-        if (lookup) { 
+        if (lookup) {  // from int to string
           if (isNaN(param))
             return param;
           let date = new Date(param*1000);
@@ -281,34 +360,41 @@ lang = {
     },
     M_D_YYYY: {
       label: 'M/D/YYYY (US format)',
-      synth: ['{M}/{D}/{YYYY}'],
-      map: function(param, lookup) {return date_time_map(param, lookup, 'en-US','M_D_YYYY')}
+      parse: '(?<M_D_YYYY>{M}/{D}/{YYYY})',
+      map: function(param, lookup) {
+        // Failing on 1/1/1970
+        //console.log("try M_D_YYYY map on", param)
+        return date_map(param, lookup, 'en-US','M_D_YYYY')}
     },
     D_M_YYYY: {
       label: 'D/M/YYYY (GB format)',
-      synth: ['{D}/{M}/{YYYY}'],
-      map: function(param, lookup) {return date_time_map(param, lookup, 'en-GB','D_M_YYYY')}
+      parse: '(?<D_M_YYYY>{D}/{M}/{YYYY})',
+      map: function(param, lookup) {
+        return date_map(param, lookup, 'en-GB','D_M_YYYY')}
     }
   },
   sign: {
     sign: {
-      label: '+/-',
+      label: 'sign', // +/-
       parse: '(?<sign>-|\\+?)' // plus sign is optional in positive #
     }
   },
   integer: {
-    int: {
-      label: 'int', // unsigned
-      parse: '(?<int>(0|[1-9]\\d*))',
+    xs_nonNegativeInteger: {
+      label: 'xs_nonNegativeInteger', // unsigned
+      parse: '(?<xs_nonNegativeInteger>(0|[1-9]\\d*))',
       // Special mapping function accomodates ANY integer range > 0.
       map: function (param){return map_integer(param, 0, null)}
     },
-    signed_int: {
-      label: 'integer - signed',
-      synth: ['{sign}{int}'],
+    xs_integer: {
+      label: 'xs_integer',
+      parse: '(?<xs_integer>{sign}{xs_nonNegativeInteger})',
+      // Synthesis is:
+      // ({sign}{xs_nonNegativeInteger})
+      // Issue: only works if run on a single field.
       default: {'sign':''}, // provides default component values
-      // Map accepts negative range (not default which is 0 to infinity)
-      map: function (param){return map_integer(param, null, null)}
+      // Note, map doesn't accept negative values.  Starts with origin = 0
+      map: function (param){return map_integer(param, 0, null)}
     },
     natural: {
       label: 'natural',
@@ -322,18 +408,23 @@ lang = {
     },
   },
   decimal: {
-    decimal: {
-      label: 'decimal',
-      synth: ['{sign}{int}{fraction}'],
+    'xs_decimal': {
+      label: 'xs_decimal',
+      parse: '(?<xs_decimal>{xs_integer}{fractional}?)',
       map: function (param){return param}
     }
   },
   fraction: {
-    fraction: {
+    fraction: { // includes leading 0
       label: 'fraction',
-      parse: '(?<fraction>0?\\.\\d+)', // Allows optional leading 0
+      parse: '(?<fraction>0\\.\\d+)', 
       map: function (param){return param}
-    }
+    },
+    fractional: { // doesn't include 0 before .
+      label: 'fractional',
+      parse: '(?<fractional>\\.\\d+)',
+      map: function (param){return param}
+    }, 
   },
   boolean: {
     boolean_10: {
@@ -370,16 +461,19 @@ lang = {
   geospatial: {
     lat_long: {
       label: 'lat/long - decimal',
-      synth: ['{latitude}{longitude}']
+      parse: '(?<lat_long>{latitude} ?{longitude})'
     },
     latitude: {
       label: 'latitude - decimal',
-      parse: '(?<latitude>[+-]?((0|[1-8][0-9]?)(\\.[0-9]+)?|(90(\\.0+)?)))'
+      parse: '(?<latitude>{xs_decimal})',
+      'xs_minInclusive': -90,
+      'xs_maxInclusive': 90
     },
     longitude: {
       label: 'longitude - decimal',
-      // leading space is a bit of a cludge for lat_long
-      parse: '[ ]?(?<longitude>[+-]?((0|[1-9][0-9]?|1[0-7][0-9]?)(\\.[0-9]+)?|(180(\\.0+)?)))'
+      parse: '(?<longitude>{xs_decimal})',
+      'xs_minInclusive': -180,
+      'xs_maxInclusive': 180
     }
   }
 }

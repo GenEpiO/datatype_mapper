@@ -29,32 +29,32 @@ And in the case where a round trip conversion shouldn't be attempted:
 */
 
 test_suite = [
-  {user: {field: 'D', unit: '', values: ['0','1','31','32']},
+  {user: {field: 'D',  unit: '', values: ['0','1','31','32']},
   spec:  {field: 'DD', unit: '', values: ['false','01','31', 'false']}
   },
-  {user: {field: 'weekday_int', unit: '', values: ['0','1','7','8']},
+  {user: {field: 'weekday_int',  unit: '', values: ['0','1','7','8']},
   spec:  {field: 'weekday_abbr', unit: '', values: ['false','mon','sun', 'false']}
   },
-  {user: {field: 'M', unit: '', values: ['0','1','12','13']},
+  {user: {field: 'M',  unit: '', values: ['0','1','12','13']},
   spec:  {field: 'MM', unit: '', values: ['false','01','12','false']}
   },
   {user: {field: 'month_abbr', unit: '', values: ['junk','jan','dec','2']},
   spec:  {field: 'month_word', unit: '', values: ['false','january','december','false']}
   },
   {user: {field: 'natural', unit: '', values: ['0','1','12','13']},
-  spec:  {field: 'M', unit: '', values: ['false','1','12','false']}
+  spec:  {field: 'M',       unit: '', values: ['false','1','12','false']}
   },
-  {user: {field: 'int', unit: '', values: ['-1','0','11','12']},
-  spec:  {field: 'M', unit: '', values: ['false','1','12','false']}
+  {user: {field: 'xs_integer', unit: '', values: ['-1','0','11','12']},
+  spec:  {field: 'M',          unit: '', values: ['false','1','12','false']}
   },
-  {user: {field: 'YYYY', unit: '', values: ['0000','1900','1999','2000']},
+  {user: {field: 'YYYY',  unit: '', values: ['0000','1900','1999','2000']},
   spec:  {field: 'c19YY', unit: '', values: ['false','00','99','false']}
   },
   {user: {field: 'c19YY', unit: '', values: ['0','00','45','101']},
-  spec:  {field: 'YYYY', unit: '', values: ['false','1900','1945','false']}
+  spec:  {field: 'YYYY',  unit: '', values: ['false','1900','1945','false']}
   },
   {user: {field: 'c20YY', unit: '', values: ['0','00','45','101']},
-  spec:  {field: 'YYYY', unit: '', values: ['false','2000','2045','false']}
+  spec:  {field: 'YYYY',  unit: '', values: ['false','2000','2045','false']}
   },
 
   {user: {field: 'duration', unit: '', values: ['P5Y','P3M','P123D','P1Y34W']},
@@ -67,7 +67,7 @@ test_suite = [
   spec:  {field: 'h12ap', unit: '', values: ['0a','1a','11p','false']}
   },
 
-
+  /* NUMERIC COMPARISON */
   {user: {field: 's_int', unit: '', values: ['0',  '1', '59',    '60']},
   spec:  {field: 'ss', unit: '', values:   ['00', '01', '59', 'false']}
   },
@@ -76,9 +76,26 @@ test_suite = [
   spec:  {field: 'mm', unit: '', values:    ['00', '01', '59', 'false']}
   },
 
-  {user: {field: 'int', unit: '', values:  ['-1',  '0', '1',    '100']},
-  spec:  {field: 'signed_int', unit: '', values:    ['false', '0', '1', '100']}
+  {user: {field: 'xs_nonNegativeInteger', unit: '', values: ['-1',    '0', '1', '100']},
+  spec:  {field: 'xs_integer',            unit: '', values: ['false', '0', '1', '100']}
   },
+
+
+  {user: {field: 'xs_decimal', unit: '', values: ['-1.0','0.0','1.0','+2.0']}},
+
+  //Question: should xs_decimal normalize from 1 to 1.0?
+  {user: {field: 'xs_decimal', unit: '', values: ['-1','0','1','+2']},
+   spec: {field: 'xs_decimal', unit: '', values: ['-1','0','1','2']}
+  },
+
+  {user: {field: 'xs_decimal', unit: '', values: ['-1.0','0.0','1.0','+2.0']},
+   spec: {field: 'xs_integer', unit: '', values: ['-1',  '0',  '1',  '2']}
+  },
+
+  {user: {field: 'xs_integer', unit: '', values: ['-1','0','1','+2']}},
+  {user: {field: 'xs_integer', unit: '', values: ['-1.0','0.1','1.0','+2.1']}},
+
+
 
   // ISSUE: Should this be forced to be just 3 digits?
   {user: {field: 'ms_int',      unit: '', values: [   '0',    '1',  '999', '1000']},
@@ -114,7 +131,7 @@ test_suite = [
   spec:  {field: 'datetime_iso_8601', unit: '', values: ['1970-01-01T00:00:00.000Z','1995-01-03T00:00:00.000Z','2001-12-31T00:00:01.000Z','']}
   },
 
-  {  user:  {field: 'datetime_iso_8601', unit: '', values: ['1970-01-01T00:00:00.000+00:00','1995-01-03T00:00:00.000+00:00', '2001-12-31T00:00:01.000+23:59', '2001-12-31T00:00:01.000+24:00']},
+  {user:  {field: 'datetime_iso_8601', unit: '', values: ['1970-01-01T00:00:00.000+00:00','1995-01-03T00:00:00.000+00:00', '2001-12-31T00:00:01.000+23:59', '2001-12-31T00:00:01.000+24:00']},
     spec: {field: 'unix_date', unit: '', values: ['0', '789091200','1009670461','false']}
 
   },
@@ -123,7 +140,7 @@ test_suite = [
   spec:  {field: 'y_n', unit: '', values: ['false','n','y','false']}
   },
 
-  {user: {field: 'y_n', unit: '', values: ['0','n','y','2']},
+  {user: {field: 'y_n', unit: '',    values: ['0',    'n', 'y',  '2']},
   spec:  {field: 'yes_no', unit: '', values: ['false','no','yes','false']}
   },
 
