@@ -148,7 +148,7 @@ function validate_wrapper(input_source) {
   if (field_id) {
     let text = null;
     let input_field = document.getElementById(input_source + '_field_input');
-    let result = validate (field_id, input_field.value);
+    let result = false //validate (field_id, input_field.value);
 
     if (result) {
       let params = [];
@@ -202,7 +202,8 @@ function render_test_suite() {
 
         // Validate user field parse
         validation = validate(test.user.field, value);
-        test.user.class[i] = (validation == null) ? 'invalid' : 'ok';
+        //console.log(validation)
+        test.user.class[i] = (validation === null || validation === false) ? 'invalid' : 'ok';
 
         // Try user -> spec conversion
         if (test.spec.values[i] && test.spec.field) {

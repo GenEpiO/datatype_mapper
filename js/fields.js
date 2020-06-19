@@ -159,7 +159,7 @@ lang = {
     */
     duration: {
       label: 'duration - ISO 8601',
-      parse: '(?<duration>P{year_duration}?{month_duration}?{week_duration}?{day_duration}?)',
+      parse: '(?<duration>P{year_duration_iso_8601}?{month_duration_iso_8601}?{week_duration_iso_8601}?{day_duration_iso_8601}?)',
       // Mapping is a bit complicated.
     },
     year_duration_iso_8601: {
@@ -334,6 +334,7 @@ lang = {
     },
     time_iso_8601: {
       label: 'time (ISO 8601)',
+      // ISO time may or may not have ":" as a delimiter between hh:mm:ss
       parse: '(?<time_iso_8601>{hh}((?<delim>:?){mm}(\\k<delim>{ss}{ms_fraction}?)?)?)',
       map: null // PROBABLY THE SAME AS FOR datetime_iso_8601
     },
@@ -364,13 +365,25 @@ lang = {
       map: function(param, lookup) {
         // Failing on 1/1/1970
         //console.log("try M_D_YYYY map on", param)
-        return date_map(param, lookup, 'en-US','M_D_YYYY')}
+        return date_map(param, lookup, 'M_D_YYYY')}
     },
-    D_M_YYYY: {
+    MM_DD_YYYY: { // Javascript seems to force this as 2-digit MM DD
+      label: 'MM/DD/YYYY (US format)',
+      parse: '(?<MM_DD_YYYY>{MM}/{DD}/{YYYY})',
+      map: function(param, lookup) {
+        return date_map(param, lookup, 'MM_DD_YYYY')}
+    },
+    D_M_YYYY: { // Javascript seems to force this as 1-digit MM DD
       label: 'D/M/YYYY (GB format)',
       parse: '(?<D_M_YYYY>{D}/{M}/{YYYY})',
       map: function(param, lookup) {
-        return date_map(param, lookup, 'en-GB','D_M_YYYY')}
+        return date_map(param, lookup, 'D_M_YYYY')}
+    },
+    DD_MM_YYYY: {
+      label: 'DD/MM/YYYY (GB format)',
+      parse: '(?<DD_MM_YYYY>{DD}/{MM}/{YYYY})',
+      map: function(param, lookup) {
+        return date_map(param, lookup, 'DD_MM_YYYY')}
     }
   },
   sign: {
@@ -382,7 +395,9 @@ lang = {
   integer: {
     xs_nonNegativeInteger: {
       label: 'xs_nonNegativeInteger', // unsigned
-      parse: '(?<xs_nonNegativeInteger>(0|[1-9]\\d*))',
+      // Addition of \d*? means minimal necessary digit addition - which is
+      // echoed by RandExp
+      parse: '(?<xs_nonNegativeInteger>0|[1-9]\\d*?)',
       // Special mapping function accomodates ANY integer range > 0.
       map: function (param){return map_integer(param, 0, null)}
     },
@@ -403,6 +418,7 @@ lang = {
       map: function (param, lookup){
         if (lookup)
           return map_integer(parseInt(param) + 1, 1, null);
+
         return map_integer(parseInt(param) -1, 0, null);
       }
     },
@@ -412,6 +428,7 @@ lang = {
       label: 'xs_decimal',
       parse: '(?<xs_decimal>{xs_integer}{fractional}?)',
       map: function (param){return param}
+      // ISSUE: map of integer to decimal?  Only one way.
     }
   },
   fraction: {
@@ -466,14 +483,14 @@ lang = {
     latitude: {
       label: 'latitude - decimal',
       parse: '(?<latitude>{xs_decimal})',
-      'xs_minInclusive': -90,
-      'xs_maxInclusive': 90
+      xs_minInclusive: -90,
+      xs_maxInclusive: 90
     },
     longitude: {
       label: 'longitude - decimal',
       parse: '(?<longitude>{xs_decimal})',
-      'xs_minInclusive': -180,
-      'xs_maxInclusive': 180
+      xs_minInclusive: -180,
+      xs_maxInclusive: 180
     }
   }
 }

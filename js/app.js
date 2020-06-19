@@ -17,12 +17,16 @@ String.prototype.supplant = function (dict) {
     );
 };
 
-REGEX_FIELD_TYPE =/\(\?<(?<name>[A-Za-z0-9_]+)>/ig 
+
+
+REGEX_FIELD_TYPE =/\(\?<(?<name>[A-Za-z0-9_]+)>/g 
+REGEX_FIELD_PARSE_CONTENT = /^\(\?<[A-Za-z0-9_]+>(?<content>.+)\)$/
+REGEX_DUPLICATE_NAME = /\((?<name>\?<[^>]+>)(?<content>.+?)\(\k<name>/
 
 function init_field_type() {
 
   // Dictionary of field name -> regex parse.
-  let field_parse_index = {}; 
+  // Global // let field_parse_index = {}; 
 
   // Every field that has a mapping will be member of 'integer' group.
   field_equivalence['integer']={} 
@@ -85,19 +89,17 @@ function init_field_type() {
   for (let [field_id, field] of Object.entries(field_index)) {
     // Must eliminate duplicate instances of any name in field.parse or a 
     // regex parse error will be thrown.
-    // Note lazy search via "<content>.+?"
-    var myre = /\((?<name>\?<[^>]+>)(?<content>.+?)\(\k<name>/
+    // Note lazy search via "<content>.+?" searches for nearest occurance of name.
+
     var old_parse = field.parse
 
-    // Could make this more sophisticated and actually preserve 2nd instance of
+    // FUTURE: Could make this more sophisticated and actually preserve 2nd instance of
     // named group, with a counter suffix.
-    field.parse = field.parse.replace(myre, "($<name>($<content>");
+    field.parse = field.parse.replace(REGEX_DUPLICATE_NAME, "($<name>$<content>(");
     while (old_parse != field.parse) {
       old_parse = field.parse;
-      field.parse = field.parse.replace(myre, "($<name>($<content>");
+      field.parse = field.parse.replace(REGEX_DUPLICATE_NAME, "($<name>$<content>(");
     }
-
-    //console.log(field.parse)
 
     // Now convert parse string into live regular expression
     field.parse = new RegExp('^' + field.parse + '$', 'i');
@@ -112,8 +114,18 @@ function init_field_type() {
   :rtype regular expression object including .groups
 */
 function validate(field_id, value) {
-  if (field_index[field_id])
-    return value.match(field_index[field_id].parse);
+  let field_type = field_index[field_id];
+  if (field_type) {
+    let parsed_value = value.match(field_type.parse);
+    // ISSUE {latitude} {longitude} --> parsing.  If one of the two is wrong, needs to be validated
+    if (parsed_value !== null && (field_type.xs_minInclusive || field_type.xs_maxInclusive)) {
+      if (field_type.xs_minInclusive && (field_type.xs_minInclusive > parsed_value.groups[field_id]))
+        return false
+      if (field_type.xs_maxInclusive && (field_type.xs_maxInclusive < parsed_value.groups[field_id]))
+        return false
+    }
+    return parsed_value
+  }
 
   console.log(`No field_index[] for field type "${field_id}"`)
   return false
@@ -139,6 +151,7 @@ function convert(source_id, source_value, target_id, show=false) {
   // We accept the granularity of source input components as present in source_dict
 
   source_parse_result = source_value.match(source.parse);
+  //source_parse_result = validate(source_id, source_value) 
   if (source_parse_result) 
     source_dict = source_parse_result.groups;
   else {
@@ -194,74 +207,78 @@ function convert(source_id, source_value, target_id, show=false) {
   if (show)
     console.log("Field type A to B!");
 
-  /* Default mapping assumes target field type will occur in source dict. This
-  will be typical of mapping between fields in datasets defined by pure 
-  ontology specs.
-   e.g. mapping = {'{date_iso_8601}':{'date_iso_8601':null }'}
-   e.g. mapping = {'{M}/{D}/{YYYY}':{'M':null,'D':null,'YYYY':null }'}
-   e.g. target {'{signed_int}': {…}} issue this won't get accessed as unix_date????
-
-   TOP-DOWN - if we can match overall part, then dispense with matching component parts.
-   
-   (?<lat_long>{latitude} ?{longitude}) -> 
-      ({lat_long}{latitude} ?{longitude})
-      if no {lat_long}
-       -> ({latitude} ?{longitude})
-      if latitude in dictionary, use it
-      otherwise replace it with regexp 
-      (?<latitude>{xs_decimal}) -> 
-          ({xs_decimal})
-    
-  */
-
-  /* e.g. target parse 
-    (?<DD>0[1-9]|[12][0-9]|30|31) -> {DD}
-    (?<h12>[0-9]|10|11|12)[ ]?(?<a_p>a|p|am|pm) -> {h12}{a_p}
-
-    (?<day_duration>{xs_integer}D) -> ({day_duration}{xs_integer}D)
-    (?<day_duration_iso_8601>{day_duration}D)
-
-TRY: EXPAND TARGET PARSE to determine parts and their order.
-
-CREATE 2nd string out of parts (if any) {p1}{p2}{p4}
-APPLY source_dict to that.
-THEN APPLY TARGET PARSE TO THAT.
-ISSUE IS IF TARGET PARSE HAS [s]{4} etc.
-
-  */ 
-  let mapping = {}
+  // SYNTHESIS: Usually target field type components will occur in source dict.
+  // TOP-DOWN - if we can match overall part, then dispense with matching component parts.
+  let mapping = {};
+  let synth = '';
 
   // Easy case: source_dict already has exactly same field type as target.
+  // e.g. in (?<latitude>{xs_decimal}) , "latitude" is a source_dict key too.
   if (target.id in source_dict) {
-    var synth = source_dict[target.id];
+    synth = source_dict[target.id];
     mapping[target.id] = synth;
-
+    synth_value = synth;
   }
   else {
     // See if there's a mapping from target.id to some other input in group.
-    var [mapped_id, synth] = get_mapped_field(target, source_dict);
+    // Would there ever be more than one mapping?
+    [mapped_id, synth] = get_mapped_field(target, source_dict);
     if (mapped_id) {
       mapping[target.id] = synth;
-      //console.log ("MAP RESULT", target.id, mapped_id, synth)
+      console.log ("MAP RESULT", target.id, mapped_id, synth)
       //xs_decimal has mapping to nonNegativeInteger.  Probably shouldn't.
       if (!synth) {
         synth = '';
       }
-      console.log("here at " , target.id )
+      synth_value = synth //.supplant(mapping)
+
     }
     else {
-      // Assemble target from components.
+      /* Assemble target from components.
+        EXTRACT string of matchable parts (if any) {p1}{p2}?{p3}...
 
-      // Remove the first ?<name> part from field's string version of parse
-      var synth = target.synth.replace(REGEX_FIELD_TYPE, '(');
+        e.g. target parse 
+        (?<latitude>{xs_decimal}) -> {xs_decimal}
+        (?<day_duration_iso_8601>{day_duration}D) -> {day_duration}D
+      */
+      synth = target.synth.match(REGEX_FIELD_PARSE_CONTENT).groups['content'];
 
-      // Work on matching each component
-      //e.g. ({day_duration}{xs_integer}D)
-      // match day_duration
-      field_types = synth.match(/{([^{}]*)}/g);
+      //Copy known values in from source_dict
+      synth = synth.supplant(source_dict);
 
-      console.log("ASSEMBLE ",target.id, field_types, source_dict)
-      //var field_id = .substr(1, item.length - 2);
+      // Replace remaining {fielt_type} with components from lang, if any.
+      synth = synth.supplant(field_parse_index);
+
+      // Remove the wrapper "(?<name>" ... ")" parts from field's string version of parse
+      // since RandExp() can't handle named groups
+      //synth = synth.replace(REGEX_FIELD_TYPE, '(') //.groups['content'];
+      
+      // From https://github.com/fent/randexp.js
+      //const randexp = new RandExp(synth);
+      //randexp.max = 0; // limit on optional repeating elements
+      //synth_value = randexp.gen();
+
+      //({...}) in preparation for regex.
+      // Drop all optional expressions that haven't matched
+      // PRIMITIVE HACK: Just resolving {...}? or [...]? or ()? 
+      synth = synth.replace(/{[^}]+}\?/,  ''); //{...}? 
+      synth = synth.replace(/\[[^\\]]+\?/,''); //[...]?
+      synth = synth.replace(/\([^)]+\)\?/, ''); //()?
+
+      synth_value = synth
+      
+      // ISSUE IS IF TARGET PARSE STILL HAS REGULAR EXPRESSION PARTS 
+      // e.g. [s]{4} etc.
+
+      // ISSUE: EACH NUMERIC COMPONENT NEEDS xs_minIncluding and xs_maxIncluding tests.
+
+      console.log("ASSEMBLE ", target.id, synth, source_dict)
+
+      // ISSUE: ADD BETTER MAPPING EXPLANATION.
+
+      // If {named_part} still left in regular expression then Search and
+      // replace was not successful, some missing input part.
+
     }
 
   }
@@ -269,16 +286,16 @@ ISSUE IS IF TARGET PARSE HAS [s]{4} etc.
   // Apply and render mapping to target's synth expression.
   if (show) {
     messageDom.innerHTML = JSON.stringify(mapping, undefined, 4); 
-    console.log(synth, mapping) // i.e. the mapping key synth dictionary
+    console.log(synth_value, mapping) // i.e. the mapping key synth dictionary
 
   }
 
   // String() just in case it is a number (in case where array values provided as numbers)
-  return String(synth).supplant(mapping)
+  return String(synth_value)
 
 }
 
-/* Given a
+/* 
   FUTURE: multiple combinations of mappings possible?
 */ 
 function get_mapped_field(field, source_dict) {
@@ -296,7 +313,7 @@ function get_mapped_field(field, source_dict) {
   return [null, null]
 }
 
-// Create a hierarchy array out of well-balanced nested parenthetic structure
+/* Create a hierarchy array out of well-balanced nested parenthetic structure
 function parse_tree(str) {
   var cnt=0;  // keep count of opened brackets
   return Array.prototype.reduce.call(str,function(prev,curr){
@@ -306,6 +323,7 @@ function parse_tree(str) {
     return prev;
   },[]);
 }
+*/
 
 /* Take source field's parsed value, 
 get source field's index for that value
@@ -378,32 +396,47 @@ function map_integer(param, lowerlim = 0, upper = null, padding = false) {
 /* Bi-direction date field conversion according to various formats, e.g. 
 en-US and en-UK.
 
+Avoiding new Intl.DateTimeFormat() because there seems to be a bug in BRITISH
+en-GB language display of D/M/YYYY in that it ALWAYS publishes date with 
+leading 0 DD MM even if one tries to provide option of {month: 'numeric', 
+day: 'numeric'} etc. Not sure if that is just Chrome ...
+
 Called in js/fields.js by D_M_YYYY (en-GB) and M_D_YYYY (en-US)
 
-If get index called (the default)
-:param string A date string in GB or US
+For javascript date time formats, see: https://www.ecma-international.org/publications/files/ECMA-ST/ECMA-402.pdf
+
+If get index called (i.e. lookup = false, the default)
+:param string A date string in GB or US or other format.
 :rtype integer
 
-If lookup call performed
-:rtype str 
+If lookup call performed, then integer is supplied as key for date, 
+:param int An integer (or string coerced into one).
+:rtype str A date string is returned
 
 */
-function date_map(param, lookup, language, format) {
+function date_map(param, lookup, field_label) {
  
-  // e.g. linux time -> US M/D/YYYY date
-  if (lookup) {
+  // linux time -> e.g. US M/D/YYYY date
+  if (lookup) { // Adding timezone offset
     let date = new Date(param*1000);
-    let options = {timeZone:'UTC'}
-    return new Intl.DateTimeFormat(language, options).format(date)
+    date.setHours(date.getHours() + date.getTimezoneOffset()/60); // for UTC
+    date_dict = {
+      'YYYY': date.getFullYear(),
+      'M': date.getMonth() +1,
+      'D': date.getDate()
+    }
+    var date_synth = lang.date[field_label].synth;
+    var date_format = date_synth.match(REGEX_FIELD_PARSE_CONTENT).groups['content'];
+    return date_format.supplant(date_dict);
   }
 
+  // Generate linux time from given string date
   // new Date() can't handle '{D}/{M}/{YYYY}' GB formatted dates, and
   // maybe others, so rebuild date using 'M_D_YYYY' US format
-  let synth = '{M}/{D}/{YYYY}'; 
-  // A dictionary composed of all the date parts
-  let dict = param.match(lang.date[format].parse).groups;
+  // A dictionary composed of all the date parts. depends on named parts
+  let dict = param.match(lang.date[field_label].parse).groups; 
 
-  var date = new Date(synth.supplant(dict)); 
+  var date = new Date('{M}/{D}/{YYYY}'.supplant(dict)); 
   //Date above doesn't have timezone so created date ASSUMED to be local to computer
-  return String((date.getTime() - date.getTimezoneOffset()*60*1000) / 1000); // 
+  return String((date.getTime() - date.getTimezoneOffset()*60*1000) / 1000); 
 }

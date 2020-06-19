@@ -129,6 +129,7 @@
 <script src="js/fields.js"></script>
 <script src="js/html_utils.js"></script>
 <script src="js/test_suite.js"></script>
+<script src="js/randexp.min.js"></script> <!-- From https://github.com/fent/randexp.js -->
 
 <script>
   // Mapping of field name to field object
@@ -136,6 +137,7 @@
   // Mapping of field group to field if it has a map
   //field_equivalence.[field_group_name][field_name] = field.decompose;
   field_equivalence = {}; 
+  field_parse_index = {};
   init_field_type();
   render_test_suite();
 
