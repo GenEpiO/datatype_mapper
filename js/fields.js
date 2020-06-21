@@ -221,7 +221,7 @@ lang = {
     h12ap: {
       label: 'hour - 12 a/p',
       group: 'hour',
-      parse: '(?<h12>[0-9]|10|11|12)[ ]?{am_pm}', //case insensitive
+      parse: '(?<h12>[0-9]|10|11|12) ?{am_pm}', //case insensitive
       unit: 'UO:0000032',
       map: function (param, lookup){
         // SADLY - param isn't dictionary - it doesn't include <a_p>. Fix in future?
@@ -389,7 +389,7 @@ lang = {
   sign: {
     sign: {
       label: 'sign', // +/-
-      parse: '(?<sign>-|\\+?)' // plus sign is optional in positive #
+      parse: '(?<sign>|\\+|-)' // plus sign is optional in positive #
     }
   },
   integer: {
@@ -397,7 +397,7 @@ lang = {
       label: 'xs_nonNegativeInteger', // unsigned
       // Addition of \d*? means minimal necessary digit addition - which is
       // echoed by RandExp
-      parse: '(?<xs_nonNegativeInteger>0|[1-9]\\d*?)',
+      parse: '(?<xs_nonNegativeInteger>0|[1-9]\\d*)',
       // Special mapping function accomodates ANY integer range > 0.
       map: function (param){return map_integer(param, 0, null)}
     },
@@ -426,6 +426,7 @@ lang = {
   decimal: {
     'xs_decimal': {
       label: 'xs_decimal',
+      // Note that a decimal may be syntactically an integer.
       parse: '(?<xs_decimal>{xs_integer}{fractional}?)',
       map: function (param){return param}
       // ISSUE: map of integer to decimal?  Only one way.
@@ -434,8 +435,15 @@ lang = {
   fraction: {
     fraction: { // includes leading 0
       label: 'fraction',
-      parse: '(?<fraction>0\\.\\d+)', 
+      parse: '(?<fraction>0{fractional})', 
       map: function (param){return param}
+      /*
+      map: function (param, lookup) {
+        if (lookup)
+          map_integer(parseInt(param)* 1000, 0, 1000, null)
+        else
+          return(param/ 1000);
+      }*/
     },
     fractional: { // doesn't include 0 before .
       label: 'fractional',
@@ -478,17 +486,23 @@ lang = {
   geospatial: {
     lat_long: {
       label: 'lat/long - decimal',
-      parse: '(?<lat_long>{latitude} ?{longitude})'
+      // PROBLEM: can't validate latitude / longitude as a number when they
+      // are composed.
+      // Issue: can't have space if there's no sign.
+      // Synthesis expr favours inserting a space
+      parse: '(?<lat_long>{latitude}( |){longitude})'
     },
     latitude: {
       label: 'latitude - decimal',
       parse: '(?<latitude>{xs_decimal})',
+      group: 'decimal',
       xs_minInclusive: -90,
       xs_maxInclusive: 90
     },
     longitude: {
       label: 'longitude - decimal',
       parse: '(?<longitude>{xs_decimal})',
+      group: 'decimal',
       xs_minInclusive: -180,
       xs_maxInclusive: 180
     }

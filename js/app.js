@@ -1,3 +1,5 @@
+
+
 /* 
 Enables {squiggly} variable key in a string to be replaced by corresponding
 dictionary key value, just like in python.
@@ -71,7 +73,7 @@ function init_field_type() {
     parse: '(?<date_iso_8601>{YYYY}-{MM}-{DD})',
 
   */
-  for (let step = 0; step < 4; step++) {
+  for (let step = 0; step < 5; step++) {
     for (let [field_id, field] of Object.entries(field_index)) {
       if (field.parse.indexOf('{') !== -1) { // possibility of "{named_part}"
         // Do a search and replace.  This may still require more S&R, but
@@ -132,12 +134,14 @@ function validate(field_id, value) {
 }
 
 /*
-
 :param boolean show: display messages.
 */
-function convert(source_id, source_value, target_id, show=false) {
+function convert(fields, target_id, show) {
 
-  let source = field_index[source_id];
+//source_id, source_value
+
+  let source_value = fields[0].value;
+  let source = field_index[fields[0].field];
   let target = field_index[target_id];
   let messageDom = document.getElementById('conversion');
   let source_parse_result = null;
@@ -150,7 +154,7 @@ function convert(source_id, source_value, target_id, show=false) {
 
   // We accept the granularity of source input components as present in source_dict
 
-  source_parse_result = source_value.match(source.parse);
+  source_parse_result = fields[0].value.match(source.parse);
   //source_parse_result = validate(source_id, source_value) 
   if (source_parse_result) 
     source_dict = source_parse_result.groups;
@@ -196,7 +200,6 @@ function convert(source_id, source_value, target_id, show=false) {
     console.log('Parsed source:', source_dict);
 
   // The simple case:
-  // NO: SHOULD TEST SELF - e.g. decimal 0 = decimal 0.0 ?
   if (source == target) {
     // Need defaults at all? null differences?
     if (show) 
@@ -225,7 +228,7 @@ function convert(source_id, source_value, target_id, show=false) {
     [mapped_id, synth] = get_mapped_field(target, source_dict);
     if (mapped_id) {
       mapping[target.id] = synth;
-      console.log ("MAP RESULT", target.id, mapped_id, synth)
+      //console.log ("MAP RESULT", target.id, mapped_id, synth)
       //xs_decimal has mapping to nonNegativeInteger.  Probably shouldn't.
       if (!synth) {
         synth = '';
@@ -234,50 +237,8 @@ function convert(source_id, source_value, target_id, show=false) {
 
     }
     else {
-      /* Assemble target from components.
-        EXTRACT string of matchable parts (if any) {p1}{p2}?{p3}...
-
-        e.g. target parse 
-        (?<latitude>{xs_decimal}) -> {xs_decimal}
-        (?<day_duration_iso_8601>{day_duration}D) -> {day_duration}D
-      */
-      synth = target.synth.match(REGEX_FIELD_PARSE_CONTENT).groups['content'];
-
-      //Copy known values in from source_dict
-      synth = synth.supplant(source_dict);
-
-      // Replace remaining {fielt_type} with components from lang, if any.
-      synth = synth.supplant(field_parse_index);
-
-      // Remove the wrapper "(?<name>" ... ")" parts from field's string version of parse
-      // since RandExp() can't handle named groups
-      //synth = synth.replace(REGEX_FIELD_TYPE, '(') //.groups['content'];
-      
-      // From https://github.com/fent/randexp.js
-      //const randexp = new RandExp(synth);
-      //randexp.max = 0; // limit on optional repeating elements
-      //synth_value = randexp.gen();
-
-      //({...}) in preparation for regex.
-      // Drop all optional expressions that haven't matched
-      // PRIMITIVE HACK: Just resolving {...}? or [...]? or ()? 
-      synth = synth.replace(/{[^}]+}\?/,  ''); //{...}? 
-      synth = synth.replace(/\[[^\\]]+\?/,''); //[...]?
-      synth = synth.replace(/\([^)]+\)\?/, ''); //()?
-
-      synth_value = synth
-      
-      // ISSUE IS IF TARGET PARSE STILL HAS REGULAR EXPRESSION PARTS 
-      // e.g. [s]{4} etc.
-
-      // ISSUE: EACH NUMERIC COMPONENT NEEDS xs_minIncluding and xs_maxIncluding tests.
-
-      console.log("ASSEMBLE ", target.id, synth, source_dict)
-
-      // ISSUE: ADD BETTER MAPPING EXPLANATION.
-
-      // If {named_part} still left in regular expression then Search and
-      // replace was not successful, some missing input part.
+      // Assemble target from components spread across one or more fields.
+      synth_value = synthesize(target,source_dict);
 
     }
 
@@ -286,13 +247,66 @@ function convert(source_id, source_value, target_id, show=false) {
   // Apply and render mapping to target's synth expression.
   if (show) {
     messageDom.innerHTML = JSON.stringify(mapping, undefined, 4); 
-    console.log(synth_value, mapping) // i.e. the mapping key synth dictionary
+    //console.log(synth_value, mapping) // i.e. the mapping key synth dictionary
 
   }
 
   // String() just in case it is a number (in case where array values provided as numbers)
   return String(synth_value)
 
+}
+
+/* Assemble target from components spread across one or more fields.
+  This is not highly efficient. 
+  FUTURE: provide a compiled transform based on the following inputs
+  and outputs.
+
+  EXTRACT string of matchable parts (if any) {p1}{p2}?{p3}...
+
+  e.g. target parse 
+  (?<latitude>{xs_decimal}) -> {xs_decimal}
+  (?<day_duration_iso_8601>{day_duration}D) -> {day_duration}D
+*/
+function synthesize(target, source_dict) {
+
+  //synth = target.synth.match(REGEX_FIELD_PARSE_CONTENT).groups['content'];
+
+  // If a decimal number is returned the "." part of the number may dissappear as it
+  // is being used in a regular expression below.  Need to escape it. Same with "+".
+  Object.keys(source_dict).forEach(function(key) {
+    if (key in source_dict && source_dict[key]) {
+      // ISSUE: EACH NUMERIC COMPONENT NEEDS xs_minIncluding and xs_maxIncluding tests.
+      source_dict[key] = source_dict[key].replace(/(?<escape>[\.\+])/,'\\$<escape>')
+    }
+  });
+
+  //Copy known values in from source_dict
+  synth = target.synth.supplant(source_dict);
+
+  // Replace remaining {fielt_type} with regex components from lang, if any.
+  synth = synth.supplant(field_parse_index);
+
+  // Remove the wrapper "(?<name>" ... ")" parts from field's string version of parse
+  // since RandExp() can't handle named groups
+  synth = synth.replace(REGEX_FIELD_TYPE, '(') //.groups['content'];
+
+  // Using https://github.com/fent/randexp.js to generate regex for 
+  // alternative parts like numeric +/- and space between latitude 
+  // longitude.
+  var randexp = new RandExp(synth);
+  randexp.max = 1; // limit on optional repeating elements
+  // This is critical to enabling all ? and (a|b|c) choices to always
+  // prioritize empty choice or first item in list.
+  randexp.randInt = function (a,b) {return a}
+  synth_value = randexp.gen();
+
+  console.log("ASSEMBLE ", target.id, synth, synth_value, source_dict)
+
+  // ISSUE: ADD BETTER MAPPING EXPLANATION.
+
+  // If {named_part} still left in regular expression then Search and
+  // replace was not successful, some missing input part.
+  return synth_value;
 }
 
 /* 

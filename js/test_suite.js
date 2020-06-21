@@ -85,26 +85,22 @@ test_suite = [
 
   //Question: should xs_decimal normalize from 1 to 1.0?
   {user: {field: 'xs_decimal', unit: '', values: ['-1','0','1','+2']},
-   spec: {field: 'xs_decimal', unit: '', values: ['-1','0','1','2']}
+   spec: {field: 'xs_decimal', unit: '', values: ['-1','0','1','+2']} // echo plus sign
   },
 
   {user: {field: 'xs_decimal', unit: '', values: ['-1.0','0.0','1.0','+2.0']},
-   spec: {field: 'xs_integer', unit: '', values: ['-1',  '0',  '1',  '2']}
+   spec: {field: 'xs_integer', unit: '', values: ['-1',  '0',  '1',  '+2']}
   },
 
   {user: {field: 'xs_integer', unit: '', values: ['-1','0','1','+2']}},
   {user: {field: 'xs_integer', unit: '', values: ['-1.0','0.1','1.0','+2.1']}},
-
-
 
   // ISSUE: Should this be forced to be just 3 digits?
   {user: {field: 'ms_int',      unit: '', values: [   '0',    '1',  '999', '1000']},
   spec:  {field: 'ms_fraction', unit: '', values: ['.000', '.001', '.999',  'false']}
   },
 
-  {user: {field: 'TZD', unit: '', values: ['Z','+00:00','+23:59','+24:60']},
-  //spec:  {field: 'TZD', unit: '', values: ['Z','+00:00','+23:59','false']}
-  },
+  {user: {field: 'TZD', unit: '', values: ['Z','+00:00','+23:59','+24:60']}},
 
   {user: {field: 'M_D_YYYY', unit: '', values: ['1/1/1970','1/3/1995','12/31/2001','2001']},
   spec:  {field: 'YYYY',     unit: '', values: ['1970','1995','2001','false']},
@@ -136,7 +132,7 @@ test_suite = [
     '1995-01-03T00:00:00.000+00:00',
     '2001-12-31T00:00:01.000+23:59',
     '2001-12-31T00:00:01.000+24:00']},
-    spec: {field: 'unix_date', unit: '', values: ['0', '789091200','1009670461','false']}
+    spec: {field: 'unix_date', unit: '', values: ['0', '789091200','1009670461','1009756800']}
 
   },
 
@@ -148,7 +144,9 @@ test_suite = [
   spec:  {field: 'yes_no', unit: '', values: ['false','no','yes','false']}
   },
 
-  {user: {field: 'latitude', unit: '', values: ['-91','-90','-89.999','-1']}},
+  {user: {field: 'latitude', unit: '', values: ['-91','-90','-89.999','-1']},
+  spec:  {field: 'xs_decimal', unit: '', values: ['false','-90','-89.999','-1']},
+  },
   {user: {field: 'latitude', unit: '', values: ['-.0001','0','0.0000','1']}},
   {user: {field: 'latitude', unit: '', values: ['1.9999','+89.999','90.0000','90.0001']}},
 

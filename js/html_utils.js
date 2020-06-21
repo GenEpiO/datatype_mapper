@@ -1,20 +1,22 @@
 
-
+// This is called only from index.html inputs.
 function convert_formfield(source_prefix = 'user', target_prefix = 'spec') {
-  let source = get_field_type(source_prefix +'_field_type');
-  let target = get_field_type(target_prefix + '_field_type');
+  let source = get_field_type(source_prefix +'_field_type_1');
+  let target = get_field_type(target_prefix + '_field_type_1');
   if (source && target) {
-    let value = document.getElementById(source_prefix +'_field_input').value;
-    let target_Dom = document.getElementById(target_prefix + '_field_input');
-    target_Dom.value = convert(source.id, value, target.id, true); //true = show messages.
+    let value = document.getElementById(source_prefix +'_field_input_1').value;
+    let target_Dom = document.getElementById(target_prefix + '_field_input_1');
+
+    target_Dom.value = convert([{field: source.id, value: value}], target.id, true); //true = show messages.
   }
 }
 
 function flip_formfield () {
-  let source_select = document.getElementById('user_field_type');
-  let source_input = document.getElementById('user_field_input');
-  let target_select = document.getElementById('spec_field_type');
-  let target_input = document.getElementById('spec_field_input');
+
+  let source_input = document.getElementById('user_field_input_1');
+  let source_select = document.getElementById('user_field_type_1');
+  let target_select = document.getElementById('spec_field_type_1');
+  let target_input = document.getElementById('spec_field_input_1');
   // Flips both sets of values.
   [source_select.value, target_select.value] = [target_select.value, source_select.value];
   [source_input.value, target_input.value] = [target_input.value, source_input.value];
@@ -106,7 +108,7 @@ function escapeHTML(s) {
 }
 
 function select_update(field_id) {
-  let control = document.getElementById('user_field_type');
+  let control = document.getElementById('user_field_type_1');
   control.value = field_id;
   control.onchange();
 }
@@ -118,7 +120,7 @@ Link matching field type to user field type select list so users can switch to i
 
 */
 function recognize(input_source) {
-  let input_field = document.getElementById(input_source + '_field_input')
+  let input_field = document.getElementById(input_source + '_field_input_1')
   var text = '';
   for (let [section_name, section] of Object.entries(lang)) { 
     for (let [field_name, field] of Object.entries(section)) { 
@@ -141,13 +143,13 @@ function recognize(input_source) {
 */
 function validate_wrapper(input_source) {
 
-  let field_id = document.getElementById(input_source + '_field_type').value;
+  let field_id = document.getElementById(input_source + '_field_type_1').value;
   let field_type = field_index[field_id];
   let message = 'Select a field type to validate by it';
 
   if (field_id) {
     let text = null;
-    let input_field = document.getElementById(input_source + '_field_input');
+    let input_field = document.getElementById(input_source + '_field_input_1');
     let result = false //validate (field_id, input_field.value);
 
     if (result) {
@@ -202,12 +204,11 @@ function render_test_suite() {
 
         // Validate user field parse
         validation = validate(test.user.field, value);
-        //console.log(validation)
-        test.user.class[i] = (validation === null || validation === false) ? 'invalid' : 'ok';
+        test.user.class[i] = (validation && validation.groups[test.user.field]) ? 'ok' : 'invalid';
 
         // Try user -> spec conversion
         if (test.spec.values[i] && test.spec.field) {
-          let output = convert(test.user.field, value, test.spec.field);
+          let output = convert([{field: test.user.field, value: value}], test.spec.field);
           //let spec_value = test.spec.values[i];
           // if the spec field value matches converted field's value, good!
           if (test.spec.values[i].localeCompare(output) == 0) {
@@ -215,8 +216,13 @@ function render_test_suite() {
 
             // Try spec -> user conversion
             if (output !== false && (test.round.values[i] != 'n/a' )) {
-              let round = convert(test.spec.field, output, test.user.field);
+              let round = convert([{field: test.spec.field, value: output}], test.user.field);
+              // We don't test against original value, but rather against what
+              // user field type is. Allows for extra + , .0 fraction etc.
               if (value.localeCompare(round) == 0) {
+                //console.log (validation2)
+              //validation2 = validate(test.user.field, round);
+              //if (validation2 && validation2.groups[test.user.field]) {
                 test.round.class[i] = "ok";
                 test.round.values[i] = '&#10004;'; // checkmark
               }
@@ -236,13 +242,11 @@ function render_test_suite() {
               test.spec.error[i] = `<br/><span class="error">${output}</span>`;
           }
         }
-        else
-          test.spec.values[i] = ''; // empty value for HTML rendering
       }
 
     };
-    
-    tbody.innerHTML = ` 
+
+    var html = ` 
       <tr>
         <td>user</td> 
         <td>${test.user.field}</td>
@@ -255,7 +259,9 @@ function render_test_suite() {
         <td class="clickable ${test.user.class[3]}"  onclick="javascript:load_test('${test.user.field}','${test.user.values[3]}','${test.spec.field}')">
           ${test.user.values[3]}${test.user.error[3]}</td>
         <td>${test.user.unit}</td>
-      </tr>
+      </tr>`;
+    if (test.spec.values.length>0) 
+      html += ` 
       <tr>
         <td>spec</td>
         <td>${test.spec.field}</td>
@@ -275,6 +281,8 @@ function render_test_suite() {
         <td></td>        
       </tr>
     `;
+
+    tbody.innerHTML = html;
     table.appendChild(tbody);
   })
 }
@@ -282,13 +290,13 @@ function render_test_suite() {
 // Puts given parameters into HTML form and triggers conversion.
 function load_test(source_id, value, target_id) {
   let messageDom = document.getElementById('conversion');
-  let source = document.getElementById('user_field_type');
+  let source = document.getElementById('user_field_type_1');
   source.value = source_id;
   if (source.selectedIndex == -1)
     messageDom.innerHTML = 'ERROR: Test suite requested unavailable field type: ' + source_id;
-  let source_input = document.getElementById('user_field_input');
+  let source_input = document.getElementById('user_field_input_1');
   source_input.value = value;
-  let target = document.getElementById('spec_field_type');
+  let target = document.getElementById('spec_field_type_1');
   target.value = target_id;
   if (target.selectedIndex == -1)
     messageDom.innerHTML = 'ERROR: Test suite requested unavailable field type: ' + target_id;

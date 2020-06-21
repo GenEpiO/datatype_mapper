@@ -6,7 +6,7 @@
 
   <body>
 
-    <h1>Bi-directional data conversion v1.0</h1>
+    <h1>Bi-directional data conversion v1.1</h1>
 
     <table>
       <tr>
@@ -16,13 +16,15 @@
         <th class="panel">Specification</th>
       </tr>
       <tr>
-        <td>Field type</td>
+        <td>Field 1</td>
         <td>
-          <select id="user_field_type" onchange="javascript:validate_wrapper('user');convert_formfield();validate_wrapper('spec')">
+          <input id="user_field_input_1" type="text" onkeyup="javascript:recognize('user');validate_wrapper('user');convert_formfield();validate_wrapper('spec')" value="" class="field_value" />
+
+          <select id="user_field_type_1" onchange="javascript:validate_wrapper('user');convert_formfield();validate_wrapper('spec')">
             <option value="">Select field type</option>
           </select>
         </td>
-        <td class="control" rowspan="3">
+        <td class="control" rowspan="4">
           convert<br/>
           <button onclick="javascript:convert_formfield()">&gt;</button>
           <br/>
@@ -30,29 +32,38 @@
           <button onclick="javascript:flip_formfield()">flip</button>
         </td>
         <td>
-          <select id="spec_field_type" onchange="javascript:convert_formfield();validate_wrapper('spec')">      
+          <input id="spec_field_input" type="text" onkeyup="javascript:validate_wrapper('spec');" class="field_value" >
+          <select id="spec_field_type" onchange="javascript:convert_formfield();validate_wrapper('spec')">
             <option value="">Select field type</option>
           </select>
         </td>
       </tr>
 
       <tr>
-        <td>Input</td>
-        <td>
-          <input id="user_field_input" type="text" onkeyup="javascript:recognize('user');validate_wrapper('user');convert_formfield();validate_wrapper('spec')" value="" />
-        </td>
-        <td>
-          <input id="spec_field_input" type="text" onkeyup="javascript:validate_wrapper('spec');">
-        </td>
-      </tr>
-
-      <tr>
         <td>Unit</td>
         <td>
-          <select id="user_field_unit"></select><br/>
+          <select id="user_field_unit_1"></select><br/>
           <input type="checkbox" disabled="disabled" /><span style="color:gray">Parse unit from input (coming soon)</span>
         </td>
         <td><select id="spec_field_unit"></select></td>
+      </tr>
+
+      <tr>
+        <td>Field 2</td>
+        <td>
+          <input id="user_field_input_2" type="text" value="" class="field_value" />
+          <select id="user_field_type_2">
+            <option value="">Select field type</option>
+          </select>
+        </td>
+      </tr>
+      <tr>
+        <td>Field 3</td>
+        <td><input id="user_field_input_3" type="text" value="" class="field_value"/>
+          <select id="user_field_type_3">
+            <option value="">Select field type</option>
+          </select>
+        </td>
       </tr>
 
       <tr>
@@ -75,7 +86,8 @@
         </td>
       </tr>
       <tr>
-        <td>Test Suite</td>
+        <td>Test Suite<br>
+        (single field conversion)</td>
         <td colspan="3">
           <div class="test_suite_wrapper">
             <table id="test_suite">
@@ -114,9 +126,8 @@
         <td>Issues/Bugs:</td>
         <td colspan="3">
           <ul>
-            <li>Unix date conversion to M/DD/YYYY looses a day+? UTC? Time zone?</li>
-            <li>Unix date conversion 0 to datetime ISO 8601 is messing up in seconds, millisecond (no period) and no TZD null.
-            <li> regex matching of parameters that can match nothing, e.g. {integer} -> {sign}{integer}</li>
+            <li>2001-12-31T00:00:01.000+23:59 ISO 8601 loosing an hour in conversion to linux time? Daylight savings or something?</li>
+            <li>Individual latitude and longitude items aren't being validated in lat_long.  This compound term would need a custom validator?</li>
           </ul>
         </td>
       </tr>
@@ -124,12 +135,15 @@
 
   </body>
 
+<!-- from https://github.com/AuthenticatedThoughts/genex-js -->
+<<!-- script src="js/genex.js"></script --> 
 <script src="js/app.js"></script>
 <script src="js/units.js"></script>
 <script src="js/fields.js"></script>
 <script src="js/html_utils.js"></script>
 <script src="js/test_suite.js"></script>
 <script src="js/randexp.min.js"></script> <!-- From https://github.com/fent/randexp.js -->
+
 
 <script>
   // Mapping of field name to field object
@@ -143,9 +157,14 @@
 
   // Render form elements
   render_field_type("user_field_type");
-  render_field_type("spec_field_type");
   render_field_unit("user_field_unit");
-  render_field_unit("spec_field_unit");  
+
+  render_field_type("user_field_type2");
+  render_field_type("user_field_type3");
+
+
+  render_field_type("spec_field_type");
+  render_field_unit("spec_field_unit");
 
 </script>
 
