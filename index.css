@@ -36,7 +36,7 @@ span.invalid, td.invalid {color:orange}
 
 input[type=text] {width:100%;}
 input.field_value {float:left; width: 190px;}
-select {max-width:150px;}
+select.regular_select {max-width:150px;}
 
 table {border:1px dotted blue;
   padding:10px;

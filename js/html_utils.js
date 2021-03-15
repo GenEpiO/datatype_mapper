@@ -1,14 +1,33 @@
 
 // This is called only from index.html inputs.
-function convert_formfield(source_prefix = 'user', target_prefix = 'spec') {
-  let source = get_field_type(source_prefix +'_field_type_1');
-  let target = get_field_type(target_prefix + '_field_type_1');
-  if (source && target) {
-    let value = document.getElementById(source_prefix +'_field_input_1').value;
-    let target_Dom = document.getElementById(target_prefix + '_field_input_1');
+function convert_formfield() {
 
-    target_Dom.value = convert([{field: source.id, value: value}], target.id, true); //true = show messages.
+  let messageDom = document.getElementById('conversion');
+
+  let target_field = get_field_type('spec_field_type_1');
+  if (!target_field) {
+        messageDom.innerHTML = 'Specification field type needs to be selected';
+    return false;
   }
+
+  let target_dom = document.getElementById('spec_field_input_1');
+
+  let fields = [];
+
+  for (ptr = 1; ptr < 4; ptr ++) {
+    let source_field = get_field_type('user_field_type_' + ptr);
+    if (!source_field && ptr ==1) { // Just check first user input field
+      messageDom.innerHTML = `Input field type needs to be selected or is invalid`;
+      return false;
+    }
+    if (source_field) {
+      let source_value = document.getElementById('user_field_input_' + ptr).value;
+      fields.push({field: source_field.id, value: source_value});
+    }
+  }
+  //true = show messages.
+  target_dom.value = convert(fields, target_field.id, true); 
+
 }
 
 function flip_formfield () {

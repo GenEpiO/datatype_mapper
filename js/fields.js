@@ -242,11 +242,11 @@ lang = {
   string: {
     am_pm: {
       label: 'am_pm',
-      parse: '(?<am_pm>a|p|am|pm)',
+      parse: '(?<am_pm>am|pm)',
     },
     a_p: {
       label: 'a_p',
-      parse: '(?<a_p>a|p|am|pm)',
+      parse: '(?<a_p>a|p)',
     }
   },
   minute: {
@@ -344,7 +344,7 @@ lang = {
       parse: '(?<datetime_iso_8601>{date_iso_8601}T{time_iso_8601}{TZD})',
       // "decompose" flag indicates source dictionary should include this decomposition
       // if a mapping is requested.
-      decompose:true, 
+//      decompose:true, 
       map: function(param, lookup) {
         // unix time -> ISO Full date
         if (lookup) {  // from int to string

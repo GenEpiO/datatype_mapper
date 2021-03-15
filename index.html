@@ -20,7 +20,7 @@
         <td>
           <input id="user_field_input_1" type="text" onkeyup="javascript:recognize('user');validate_wrapper('user');convert_formfield();validate_wrapper('spec')" value="" class="field_value" />
 
-          <select id="user_field_type_1" onchange="javascript:validate_wrapper('user');convert_formfield();validate_wrapper('spec')">
+          <select id="user_field_type_1" onchange="javascript:validate_wrapper('user');convert_formfield();validate_wrapper('spec')" class="regular_select">
             <option value="">Select field type</option>
           </select>
         </td>
@@ -32,8 +32,8 @@
           <button onclick="javascript:flip_formfield()">flip</button>
         </td>
         <td>
-          <input id="spec_field_input" type="text" onkeyup="javascript:validate_wrapper('spec');" class="field_value" >
-          <select id="spec_field_type" onchange="javascript:convert_formfield();validate_wrapper('spec')">
+          <input id="spec_field_input_1" type="text" onkeyup="javascript:validate_wrapper('spec');" class="field_value" >
+          <select id="spec_field_type_1" onchange="javascript:convert_formfield();validate_wrapper('spec')" class="regular_select">
             <option value="">Select field type</option>
           </select>
         </td>
@@ -45,14 +45,14 @@
           <select id="user_field_unit_1"></select><br/>
           <input type="checkbox" disabled="disabled" /><span style="color:gray">Parse unit from input (coming soon)</span>
         </td>
-        <td><select id="spec_field_unit"></select></td>
+        <td><select id="spec_field_unit_1"></select></td>
       </tr>
 
       <tr>
         <td>Field 2</td>
         <td>
           <input id="user_field_input_2" type="text" value="" class="field_value" />
-          <select id="user_field_type_2">
+          <select id="user_field_type_2" class="regular_select">
             <option value="">Select field type</option>
           </select>
         </td>
@@ -60,7 +60,7 @@
       <tr>
         <td>Field 3</td>
         <td><input id="user_field_input_3" type="text" value="" class="field_value"/>
-          <select id="user_field_type_3">
+          <select id="user_field_type_3" class="regular_select">
             <option value="">Select field type</option>
           </select>
         </td>
@@ -156,15 +156,15 @@
   render_test_suite();
 
   // Render form elements
-  render_field_type("user_field_type");
-  render_field_unit("user_field_unit");
+  render_field_type("user_field_type_1");
+  render_field_unit("user_field_unit_1");
 
-  render_field_type("user_field_type2");
-  render_field_type("user_field_type3");
+  render_field_type("user_field_type_2");
+  render_field_type("user_field_type_3");
 
 
-  render_field_type("spec_field_type");
-  render_field_unit("spec_field_unit");
+  render_field_type("spec_field_type_1");
+  render_field_unit("spec_field_unit_1");
 
 </script>
 

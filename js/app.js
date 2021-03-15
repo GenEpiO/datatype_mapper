@@ -1,14 +1,22 @@
+/* DataMapper app.js
 
+Code for parsing formatted fields into component parts, and then building
+them up into other formats.
 
-/* 
+FUTURE: See https://customformats.com/ and https://github.com/sheetjs/ssf for standard formatting codes.  SHOULD CONVERT this to use those formats.
+*/
+
+/* String.supplant(dictionary)
+
 Enables {squiggly} variable key in a string to be replaced by corresponding
 dictionary key value, just like in python.
 
 This PROTOTYPE extension must come before functions in script file.
+
 @param string: string containing set bracket names to be replaced by matching
                 keys in dictionary
 @param dict: dict containing key-values.
-                
+
 */
 String.prototype.supplant = function (dict) {
     return this.replace(/{([^{}]*)}/g,
@@ -18,7 +26,6 @@ String.prototype.supplant = function (dict) {
         }
     );
 };
-
 
 
 REGEX_FIELD_TYPE =/\(\?<(?<name>[A-Za-z0-9_]+)>/g 
@@ -31,7 +38,7 @@ function init_field_type() {
   // Global // let field_parse_index = {}; 
 
   // Every field that has a mapping will be member of 'integer' group.
-  field_equivalence['integer']={} 
+  field_equivalence['xs_nonNegativeInteger']={} 
 
   // 1st pass: make an index, and set parent for each field type.
   for (let [section_id, section] of Object.entries(lang)) {
@@ -44,7 +51,7 @@ function init_field_type() {
       if (field.map) {
         // [integer] group gets all fields - an integer can map to any of them
         // to at least some extent
-        field_equivalence['integer'][field_id] = null;
+        field_equivalence['xs_nonNegativeInteger'][field_id] = null;
 
         // If this field has a map, add field to map index by parent group
         if (!field_equivalence[field.group])
@@ -69,9 +76,7 @@ function init_field_type() {
   }
 
   /* 2nd pass: Lookup all {named_part} of parse regular expressions, e.g.
-
     parse: '(?<date_iso_8601>{YYYY}-{MM}-{DD})',
-
   */
   for (let step = 0; step < 5; step++) {
     for (let [field_id, field] of Object.entries(field_index)) {
@@ -136,79 +141,28 @@ function validate(field_id, value) {
 /*
 :param boolean show: display messages.
 */
-function convert(fields, target_id, show) {
+function convert(fields, target_type, show) {
 
-//source_id, source_value
-
-  let source_value = fields[0].value;
-  let source = field_index[fields[0].field];
-  let target = field_index[target_id];
   let messageDom = document.getElementById('conversion');
-  let source_parse_result = null;
+  let target_field = field_index[target_type];
 
-  if (!source || !target) {
-    if (show)
-      messageDom.innerHTML = 'Please ensure user data and specification field types have been selected';
-    return false;
-  }
-
-  // We accept the granularity of source input components as present in source_dict
-
-  source_parse_result = fields[0].value.match(source.parse);
-  //source_parse_result = validate(source_id, source_value) 
-  if (source_parse_result) 
-    source_dict = source_parse_result.groups;
-  else {
-    if (show)
-      messageDom.innerHTML = 'Source is invalid';
-    return false;
-  }
-
-  // TO DO: ALLOW MULTIPLE INPUT FIELDS TO CONTRIBUTE TO SOURCE_DICT
-
+  // source_dict collects all parsed parts of field inputs.
   // Allow target default components to be added to source component 
   // dictionary.  They are superceded by any source matched components.
-  if (target.default)
-    source_dict = {...target.default,...source_dict};
+  let source_dict = target_field.default ? target_field.default : {};
 
-  // Ensure whole parse available by id too.
-  // e.g. unix_date in source dict {sign:-,int:2342,...,unix_date:-2342}
-  source_dict[source.id] = source_parse_result[0];
+  source_dict = parse_inputs(fields, source_dict, show);
 
-  // If a source field is in a mapping group, and one of that group's members
-  // mentions field.detail = true, add its parse to the source field mapping 
-  // so that target has more exposed source components to match. There is at
-  // most one detail field per group.
+  console.log('Parsed source:', source_dict);
 
-  // This is a bit of a hack? Why not do this for every source component that 
-  // could be decomposed too?
-  if (source.map && (source.group in field_equivalence)) {
-    //FIND field type in map set that has .detail == true: 
-    for (let [detail_id, detail] of Object.entries(field_equivalence[source.group])) {
-      if (detail == true) {
-        // Add detail_id field's parse of source value to to source_dict
-        mapped_value = field_map(source.id, source_dict[source.id], detail_id);
-        detail_dict = mapped_value.match(field_index[detail_id].parse);
-        if (detail_dict) {
-          source_dict = {...source_dict,...detail_dict.groups};
-        }
-      }
-    }
-  }
-
-  if (show)
-    console.log('Parsed source:', source_dict);
-
+  /*
   // The simple case:
-  if (source == target) {
-    // Need defaults at all? null differences?
+  if (source_field == target_field) {
     if (show) 
       messageDom.innerHTML = "Field match!";
     return source_value;
   }
-
-  if (show)
-    console.log("Field type A to B!");
+  */
 
   // SYNTHESIS: Usually target field type components will occur in source dict.
   // TOP-DOWN - if we can match overall part, then dispense with matching component parts.
@@ -217,17 +171,17 @@ function convert(fields, target_id, show) {
 
   // Easy case: source_dict already has exactly same field type as target.
   // e.g. in (?<latitude>{xs_decimal}) , "latitude" is a source_dict key too.
-  if (target.id in source_dict) {
-    synth = source_dict[target.id];
-    mapping[target.id] = synth;
+  if (target_type in source_dict) {
+    synth = source_dict[target_type];
+    mapping[target_type] = synth;
     synth_value = synth;
   }
   else {
     // See if there's a mapping from target.id to some other input in group.
     // Would there ever be more than one mapping?
-    [mapped_id, synth] = get_mapped_field(target, source_dict);
+    [mapped_id, synth] = get_mapped_field(target_field, source_dict);
     if (mapped_id) {
-      mapping[target.id] = synth;
+      mapping[target_type] = synth;
       //console.log ("MAP RESULT", target.id, mapped_id, synth)
       //xs_decimal has mapping to nonNegativeInteger.  Probably shouldn't.
       if (!synth) {
@@ -238,23 +192,84 @@ function convert(fields, target_id, show) {
     }
     else {
       // Assemble target from components spread across one or more fields.
-      synth_value = synthesize(target,source_dict);
+      synth_value = synthesize(target_field, source_dict);
 
     }
 
   }
 
-  // Apply and render mapping to target's synth expression.
+  // Show mapping used in conversion.
   if (show) {
     messageDom.innerHTML = JSON.stringify(mapping, undefined, 4); 
-    //console.log(synth_value, mapping) // i.e. the mapping key synth dictionary
-
   }
 
   // String() just in case it is a number (in case where array values provided as numbers)
   return String(synth_value)
 
 }
+
+
+function parse_inputs(fields, source_dict, show) {
+  
+  let found = false;
+  for(let field of fields){
+
+    let source_type = field.field;
+    let source_value = field.value;
+
+    let source_field = field_index[source_type];
+
+    let source_parse_result = source_value.match(source_field.parse);
+    //source_parse_result = validate(source_id, source_value) 
+    if (source_parse_result) {
+      //console.log(source_dict)
+      source_dict = {...source_parse_result.groups,...source_dict};
+    }
+    else {
+      if (show)
+        messageDom.innerHTML = `Input field ${source_type} value is invalid`;
+    }
+
+
+    // If a source field is in a mapping group, and one of that group's members
+    // mentions field.detail = true, add its parse to the source field mapping 
+    // so that target has more exposed source components to match. There is at
+    // most one detail field per group.
+
+    // This is a bit of a hack? Why not do this for every source component that 
+    // could be decomposed too?
+
+
+    // WHY is DATE FIELD SoURCE ID M_D_YYYY undefined datetime_iso_8601
+    // HAVING NO group 
+    /*
+    if (source_field.map && (source_field.group in field_equivalence)) {
+      //FIND field type in map set that has .detail == true: 
+      for (let [detail_id, detail] of Object.entries(field_equivalence[source_field.group])) {
+        if (detail == true) {
+          // Add detail_id field's parse of source value to source_dict
+          if (!source_dict[source_field.id])
+            console.log("Field ${source_field.id} has group ${source_field.group} but no source_dict entry for that ")
+          console.log("SoURCE ID", source_field.id, source_dict[source_field.id], detail_id)
+          let mapped_value = field_map(source_field.id, source_dict[source_field.id], detail_id);
+          let detail_dict = mapped_value.match(field_index[detail_id].parse);
+          if (detail_dict) {
+            source_dict = {...source_dict,...detail_dict.groups};
+          }
+        }
+      }
+    }
+    */
+
+    // Ensure whole parse available by id too.
+    // e.g. unix_date in source dict {sign:-,int:2342,...,unix_date:-2342}
+    //source_dict[source.id] = source_parse_result[0];
+
+  }
+
+  return source_dict;
+}
+
 
 /* Assemble target from components spread across one or more fields.
   This is not highly efficient. 
@@ -267,7 +282,7 @@ function convert(fields, target_id, show) {
   (?<latitude>{xs_decimal}) -> {xs_decimal}
   (?<day_duration_iso_8601>{day_duration}D) -> {day_duration}D
 */
-function synthesize(target, source_dict) {
+function synthesize(target_field, source_dict) {
 
   //synth = target.synth.match(REGEX_FIELD_PARSE_CONTENT).groups['content'];
 
@@ -281,7 +296,7 @@ function synthesize(target, source_dict) {
   });
 
   //Copy known values in from source_dict
-  synth = target.synth.supplant(source_dict);
+  synth = target_field.synth.supplant(source_dict);
 
   // Replace remaining {fielt_type} with regex components from lang, if any.
   synth = synth.supplant(field_parse_index);
@@ -300,7 +315,7 @@ function synthesize(target, source_dict) {
   randexp.randInt = function (a,b) {return a}
   synth_value = randexp.gen();
 
-  console.log("ASSEMBLE ", target.id, synth, synth_value, source_dict)
+  console.log("ASSEMBLE ", target_field.id, synth, synth_value, source_dict)
 
   // ISSUE: ADD BETTER MAPPING EXPLANATION.
 
